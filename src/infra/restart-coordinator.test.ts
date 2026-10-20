@@ -4,6 +4,10 @@ import {
   tryBeginGatewayRootWorkAdmission,
 } from "../process/gateway-work-admission.js";
 import {
+  beginSessionEffect,
+  getSessionControllerWorkCount,
+} from "../sessions/session-controller.lifecycle.js";
+import {
   createSafeGatewayRestartPreflight,
   scheduleSafeGatewayRestart,
 } from "./restart-coordinator.js";
@@ -81,6 +85,20 @@ describe("safe gateway restart coordinator", () => {
     const preflight = requestPreflight({ getSessionMutations: () => 2 });
     expect(preflight.safe).toBe(false);
     expect(preflight.counts.sessionMutations).toBe(2);
+  });
+
+  it("preflight sees active session controller work through the snapshot defaults (no inspector overrides)", async () => {
+    const admission = await beginSessionEffect({
+      scope: "all1169-repro.sqlite",
+      identities: ["repro"],
+    });
+    try {
+      expect(getSessionControllerWorkCount()).toBeGreaterThan(0);
+      const preflight = createSafeGatewayRestartPreflight();
+      expect(preflight.safe).toBe(false);
+    } finally {
+      admission.release();
+    }
   });
 
   it("returns structured blockers for active work", () => {
