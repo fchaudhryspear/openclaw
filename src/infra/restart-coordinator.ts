@@ -31,6 +31,12 @@ type SafeRestartInspectors = Pick<
   | "getAgentRuns"
   | "getAcpRuns"
   | "getMediaRuns"
+  | "getSessionAdmissions"
+  | "getSessionMutations"
+  | "getChatRuns"
+  | "getQueuedTurns"
+  | "getTerminalPersistence"
+  | "getTerminalSessions"
 >;
 
 export type SafeGatewayRestartRequestResult = {
@@ -41,15 +47,10 @@ export type SafeGatewayRestartRequestResult = {
 };
 
 export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestartInspectors> = {}) {
-  const snapshot = createGatewayActiveWorkSnapshot({
-    ...inspectors,
-    getSessionAdmissions: () => 0,
-    getSessionMutations: () => 0,
-    getChatRuns: () => 0,
-    getQueuedTurns: () => 0,
-    getTerminalPersistence: () => 0,
-    getTerminalSessions: () => 0,
-  });
+  // Pass caller inspectors through untouched: createGatewayActiveWorkSnapshot already defaults
+  // the session classes to the live counters (getSessionControllerWorkCount/getSessionMutationCount).
+  // Shadowing them with literal zeros here blinded the preflight to in-flight session work.
+  const snapshot = createGatewayActiveWorkSnapshot(inspectors);
   const counts = {
     queueSize: snapshot.counts.queueSize,
     pendingReplies: snapshot.counts.pendingReplies,
@@ -60,16 +61,20 @@ export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestar
     agentRuns: snapshot.counts.agentRuns,
     acpRuns: snapshot.counts.acpRuns,
     mediaRuns: snapshot.counts.mediaRuns,
+    sessionAdmissions: snapshot.counts.sessionAdmissions,
+    sessionMutations: snapshot.counts.sessionMutations,
   };
   const totalActive = Object.values(counts).reduce((total, count) => total + count, 0);
   const blockers = snapshot.blockers as SafeGatewayRestartBlocker[];
+  const safe = totalActive === 0;
 
-  const summary =
-    blockers.length === 0
-      ? "safe to restart now"
-      : `restart deferred: ${blockers.map((blocker) => blocker.message).join("; ")}`;
+  const summary = safe
+    ? "safe to restart now"
+    : blockers.length > 0
+      ? `restart deferred: ${blockers.map((blocker) => blocker.message).join("; ")}`
+      : "restart deferred: active session work";
   return {
-    safe: totalActive === 0,
+    safe,
     counts: { ...counts, totalActive },
     blockers,
     summary,

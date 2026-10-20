@@ -63,11 +63,24 @@ describe("safe gateway restart coordinator", () => {
         agentRuns: 0,
         acpRuns: 0,
         mediaRuns: 0,
+        sessionAdmissions: 0,
+        sessionMutations: 0,
         totalActive: 0,
       },
       blockers: [],
       summary: "safe to restart now",
     });
+  });
+  it("is unsafe when session admissions are active (caller inspectors are not clobbered)", () => {
+    const preflight = requestPreflight({ getSessionAdmissions: () => 3 });
+    expect(preflight.safe).toBe(false);
+    expect(preflight.counts.sessionAdmissions).toBe(3);
+  });
+
+  it("is unsafe when session lifecycle mutations are active", () => {
+    const preflight = requestPreflight({ getSessionMutations: () => 2 });
+    expect(preflight.safe).toBe(false);
+    expect(preflight.counts.sessionMutations).toBe(2);
   });
 
   it("returns structured blockers for active work", () => {
