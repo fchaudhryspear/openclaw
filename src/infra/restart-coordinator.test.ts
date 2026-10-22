@@ -119,7 +119,8 @@ describe("safe gateway restart coordinator", () => {
       });
       expect(result.status).toBe("deferred");
       expect(result.preflight.safe).toBe(false);
-      expect(scheduleGatewayRestart).not.toHaveBeenCalled();
+      expect(result.preflight.counts.sessionAdmissions).toBe(getSessionControllerWorkCount());
+      expect(result.preflight.counts.sessionAdmissions).toBeGreaterThan(0);
     } finally {
       admission.release();
     }
