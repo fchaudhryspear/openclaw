@@ -105,6 +105,26 @@ describe("safe gateway restart coordinator", () => {
     expect(preflight.counts.terminalSessions).toBe(1);
   });
 
+  it("defers gateway.restart.safe while only session controller work is active (real scheduler path)", async () => {
+    const admission = await beginSessionEffect({
+      scope: "all1169-defer.sqlite",
+      identities: ["defer"],
+    });
+    try {
+      expect(getSessionControllerWorkCount()).toBeGreaterThan(0);
+      scheduleGatewayRestart.mockClear();
+      const result = scheduleSafeGatewayRestart({
+        reason: "gateway.restart.safe",
+        delayMs: 0,
+      });
+      expect(result.status).toBe("deferred");
+      expect(result.preflight.safe).toBe(false);
+      expect(scheduleGatewayRestart).not.toHaveBeenCalled();
+    } finally {
+      admission.release();
+    }
+  });
+
   it("preflight sees active session controller work through the snapshot defaults (no inspector overrides)", async () => {
     const admission = await beginSessionEffect({
       scope: "all1169-repro.sqlite",
