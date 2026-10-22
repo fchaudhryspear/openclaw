@@ -69,6 +69,10 @@ describe("safe gateway restart coordinator", () => {
         mediaRuns: 0,
         sessionAdmissions: 0,
         sessionMutations: 0,
+        chatRuns: 0,
+        queuedTurns: 0,
+        terminalPersistence: 0,
+        terminalSessions: 0,
         totalActive: 0,
       },
       blockers: [],
@@ -85,6 +89,20 @@ describe("safe gateway restart coordinator", () => {
     const preflight = requestPreflight({ getSessionMutations: () => 2 });
     expect(preflight.safe).toBe(false);
     expect(preflight.counts.sessionMutations).toBe(2);
+  });
+  it("counts every accepted inspector in the verdict (chat runs included)", () => {
+    const preflight = requestPreflight({ getChatRuns: () => 1 });
+    expect(preflight.safe).toBe(false);
+    expect(preflight.counts.chatRuns).toBe(1);
+    expect(preflight.summary).toBe("restart deferred: 1 active chat run(s)");
+    expect(preflight.blockers.some((b) => b.kind === "chat-run")).toBe(true);
+  });
+
+  it("counts queued turns and terminal classes consistently", () => {
+    const preflight = requestPreflight({ getQueuedTurns: () => 2, getTerminalSessions: () => 1 });
+    expect(preflight.safe).toBe(false);
+    expect(preflight.counts.queuedTurns).toBe(2);
+    expect(preflight.counts.terminalSessions).toBe(1);
   });
 
   it("preflight sees active session controller work through the snapshot defaults (no inspector overrides)", async () => {

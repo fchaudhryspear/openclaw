@@ -7,19 +7,6 @@ import { scheduleGatewayRestart, type ScheduledRestart } from "./restart.js";
 
 // Safe restart coordination checks active local work before scheduling SIGUSR2
 // restarts, while still allowing explicit deferral bypasses for operators.
-type SafeGatewayRestartBlocker = Omit<GatewayActiveWorkBlocker, "kind"> & {
-  kind:
-    | "queue"
-    | "reply"
-    | "embedded-run"
-    | "cron-run"
-    | "background-exec"
-    | "root-request"
-    | "agent-run"
-    | "acp-run"
-    | "media-generation";
-};
-
 type SafeRestartInspectors = Pick<
   GatewayActiveWorkInspectors,
   | "getQueueSize"
@@ -51,6 +38,8 @@ export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestar
   // the session classes to the live counters (getSessionControllerWorkCount/getSessionMutationCount).
   // Shadowing them with literal zeros here blinded the preflight to in-flight session work.
   const snapshot = createGatewayActiveWorkSnapshot(inspectors);
+  // Project every accepted inspector so the verdict stays consistent with the contract:
+  // a caller-supplied inspector that reports active work must never be dropped from counts.
   const counts = {
     queueSize: snapshot.counts.queueSize,
     pendingReplies: snapshot.counts.pendingReplies,
@@ -63,9 +52,14 @@ export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestar
     mediaRuns: snapshot.counts.mediaRuns,
     sessionAdmissions: snapshot.counts.sessionAdmissions,
     sessionMutations: snapshot.counts.sessionMutations,
+    chatRuns: snapshot.counts.chatRuns,
+    queuedTurns: snapshot.counts.queuedTurns,
+    terminalPersistence: snapshot.counts.terminalPersistence,
+    terminalSessions: snapshot.counts.terminalSessions,
   };
   const totalActive = Object.values(counts).reduce((total, count) => total + count, 0);
-  const blockers = snapshot.blockers as SafeGatewayRestartBlocker[];
+  // No narrowing cast: live session work produces blocker kinds outside the historic nine.
+  const blockers: GatewayActiveWorkBlocker[] = snapshot.blockers;
   const safe = totalActive === 0;
 
   const summary = safe
