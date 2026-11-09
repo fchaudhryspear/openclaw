@@ -20,10 +20,6 @@ type SafeRestartInspectors = Pick<
   | "getMediaRuns"
   | "getSessionAdmissions"
   | "getSessionMutations"
-  | "getChatRuns"
-  | "getQueuedTurns"
-  | "getTerminalPersistence"
-  | "getTerminalSessions"
 >;
 
 export type SafeGatewayRestartRequestResult = {
@@ -52,10 +48,6 @@ export function createSafeGatewayRestartPreflight(inspectors: Partial<SafeRestar
     mediaRuns: snapshot.counts.mediaRuns,
     sessionAdmissions: snapshot.counts.sessionAdmissions,
     sessionMutations: snapshot.counts.sessionMutations,
-    chatRuns: snapshot.counts.chatRuns,
-    queuedTurns: snapshot.counts.queuedTurns,
-    terminalPersistence: snapshot.counts.terminalPersistence,
-    terminalSessions: snapshot.counts.terminalSessions,
   };
   const totalActive = Object.values(counts).reduce((total, count) => total + count, 0);
   // No narrowing cast: live session work produces blocker kinds outside the historic nine.
